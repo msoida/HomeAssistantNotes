@@ -1,6 +1,6 @@
 blueprint:
   name: Ring Keypad Automations
-  description: Automations to use the Ring Keypad with an Alarm Panel integration.  See https://github.com/ImSorryButWho/HomeAssistantNotes/blob/main/RingKeypadV2.md for more information.
+  description: Automations to use the Ring Keypad with an Alarm Panel integration, extended by msoida.
   domain: automation
   input:
     keypad:
@@ -17,9 +17,9 @@ blueprint:
         entity:
           domain: alarm_control_panel
           integration: alarmo
-    selected_action_police:
-      name: Selected Action Police
-      description: Select the action for Police Button
+    selected_action_exclamation_mark:
+      name: Selected Action Exclamation Mark
+      description: Select additional action for Exclamation Mark Button (will always trigger alarm)
       default: []
       selector:
         action:
@@ -89,7 +89,7 @@ trigger:
       command_class: 111
       device_id: !input 'keypad'
       event_type: 17
-    id: keypad_police
+    id: keypad_exclamation_mark
   - platform: event
     event_type: zwave_js_notification
     event_data:
@@ -123,6 +123,10 @@ trigger:
     entity_id: !input alarm
     to: armed_home
     id: alarm_armed_home
+  - platform: state
+    entity_id: !input alarm
+    to: armed_night
+    id: alarm_armed_night
   - platform: state
     entity_id: !input alarm
     to: pending
@@ -260,6 +264,19 @@ action:
             value: 99
     - conditions:
         - condition: trigger
+          id: alarm_armed_night
+      sequence:
+        - service: zwave_js.set_value
+          target:
+            device_id: !input keypad
+          data:
+            command_class: "135"
+            endpoint: "0"
+            property: "10"
+            property_key: "1"
+            value: 99
+    - conditions:
+        - condition: trigger
           id: alarm_arming
       sequence:
         - service: zwave_js.set_value
@@ -300,12 +317,37 @@ action:
     - conditions:
       - condition: trigger
         id: keypad_fire
-      sequence: !input selected_action_fire
+      sequence: 
+        - service: zwave_js.set_value
+          target:
+            device_id: !input keypad
+          data:
+            command_class: "135"
+            endpoint: "0"
+            property: "14"
+            property_key: "1"
+            value: 99
+        - sequence: !input selected_action_fire
     - conditions:
       - condition: trigger
-        id: keypad_police
-      sequence: !input selected_action_police
+        id: keypad_exclamation_mark
+      sequence:
+        - action: alarm_control_panel.alarm_trigger
+          target:
+            entity_id: !input alarm
+          data: {}
+        - sequence: !input selected_action_exclamation_mark
     - conditions:
       - condition: trigger
         id: keypad_medical
-      sequence: !input selected_action_medical
+      sequence: 
+        - service: zwave_js.set_value
+          target:
+            device_id: !input keypad
+          data:
+            command_class: "135"
+            endpoint: "0"
+            property: "19"
+            property_key: "1"
+            value: 99
+        - sequence: !input selected_action_medical
